@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mixología Creativa: Sugerencias de Cóctel</title>
+    <!-- Incluye Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Definición de la fuente Inter y el background oscuro */
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a1a1a;
+            /* Fondo sutilmente oscuro y texturizado */
+            background-image: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            color: #e5e5e5;
+        }
+
+        /* Estilo para el caldero burbujeante (loading) */
+        .caldero-pulse {
+            animation: pulse 1.5s infinite;
+            color: #b83b3b;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+        }
+
+        /* Estilo para las listas de resultados */
+        #resultado ul {
+            list-style: disc;
+            padding-left: 20px;
+            margin: 10px 0;
+            text-align: left;
+            width: 90%;
+        }
+        #resultado li {
+            margin-bottom: 5px;
+        }
+
+        /* Wrapper para centrar el botón Abracadabra */
+        .button-wrapper {
+            @apply flex justify-center;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'vermut-dark': '#3a0101', 
+                        'alchemist-green': '#004d40', 
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div class="container bg-gray-800 p-8 rounded-xl shadow-2xl border-t-8 border-violet-900 max-w-xl relative">
+        
+        <!-- LOGO ELIMINADO -->
+
+        <h1 class="text-3xl font-extrabold text-center mb-3 text-amber-400 border-b border-gray-700 pb-3">
+            Mixología Creativa: Sugerencias de Cóctel 🍸 ⚗️
+        </h1>
+        
+        <p class="text-gray-400 text-center mb-8">
+            Describe tu vermut artesanal y la IA inventará el cóctel perfecto.
+        </p>
+
+        <!-- CAMPO DE TEXTO UNIFICADO -->
+        <label for="descripcionVermut" class="block mb-2 font-semibold text-emerald-300">
+            Fórmula Base: Describe tu Vermut Artesanal
+        </label>
+        <textarea id="descripcionVermut" rows="6" 
+            placeholder="Instrucciones: Indica la BASE (Rosso/Blanco), el DULZOR (Seco/Semi-Seco/Dulce) y las NOTAS PREDOMINANTES.
+
+Ejemplo: 'Mi vermut es ROSSO, tirando a DULCE, con notas muy intensas de tomillo y un fondo de nuez moscada y vainilla.'" 
+            class="w-full p-3 rounded-lg bg-gray-900 border border-emerald-700 focus:border-violet-400 focus:ring focus:ring-violet-400/50 text-gray-200 shadow-inner mb-8 transition-all duration-300"></textarea>
+
+        <div class="button-wrapper">
+            <button id="sugerirBtn" onclick="generarSugerencia()" class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-gray-900 shadow-xl shadow-violet-500/50 p-4 text-xl tracking-wider font-bold rounded-full">
+                Abracadabra ✨
+            </button>
+        </div>
+
+        <div id="resultado" class="mt-8 p-6 rounded-xl border-2 border-dashed border-violet-400 bg-gray-900 text-gray-200">
+            <!-- El resultado se mostrará aquí -->
+            <p class="text-sm italic text-gray-500">La receta de tu cóctel personalizado aparecerá después de la invocación.</p>
+        </div>
+        
+        <!-- FIRMA AÑADIDA AQUÍ -->
+        <p class="text-xs text-center mt-6 text-emerald-500/70 italic">
+            Creado por Caldero & Copa
+        </p>
+    </div>
+
+    <script>
+        // Lógica JavaScript para la sugerencia creativa utilizando la API de Gemini
+        const MAX_RETRIES = 5;
+        const BASE_DELAY_MS = 1000;
+        const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
+        const apiKey = ""; // La clave se proporcionará en el entorno de Canvas
+
+        /**
+         * Realiza una llamada a la API de Gemini con reintentos y backoff exponencial.
+         * @param {object} payload - El cuerpo de la solicitud para la API de Gemini.
+         * @param {string} url - La URL de la API.
+         * @returns {Promise<object>} El objeto JSON de respuesta de la API.
+         */
+        async function fetchWithBackoff(payload, url) {
+            for (let i = 0; i < MAX_RETRIES; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        return await response.json();
+                    } else if (response.status === 429) {
+                        // Too Many Requests - retry after delay
+                        const delay = BASE_DELAY_MS * Math.pow(2, i) + Math.random() * 1000;
+                        if (i < MAX_RETRIES - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                        } else {
+                            throw new Error("API rate limit exceeded after multiple retries.");
+                        }
+                    } else {
+                        throw new Error(`API returned status ${response.status}: ${response.statusText}`);
+                    }
+                } catch (error) {
+                    if (i === MAX_RETRIES - 1) throw error;
+                    const delay = BASE_DELAY_MS * Math.pow(2, i) + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        /**
+         * Genera la sugerencia de cóctel llamando a la API de Gemini.
+         */
+        async function generarSugerencia() {
+            // Obtener el texto completo de la descripción
+            const descripcionCompleta = document.getElementById('descripcionVermut').value.trim();
+            
+            const resultadoDiv = document.getElementById('resultado');
+            const sugerirBtn = document.getElementById('sugerirBtn');
+
+            if (!descripcionCompleta) {
+                resultadoDiv.innerHTML = '<p class="text-yellow-500">¡Alerta Alquimista! Debes describir las características de tu vermut antes de invocar la fórmula.</p>';
+                return;
+            }
+
+            sugerirBtn.disabled = true;
+            sugerirBtn.classList.add('bg-gray-600', 'hover:bg-gray-600');
+            sugerirBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+            
+            // Simulación de caldero burbujeante (Loading)
+            resultadoDiv.innerHTML = `
+                <div class="text-4xl caldero-pulse">⚗️</div>
+                <p class="mt-2 text-red-400">Invocando el espíritu de la Mixología...</p>
+                <p class="text-xs text-gray-500">Analizando tu descripción para la fórmula perfecta...</p>
+            `;
+
+            // Prompting to the AI
+            const userQuery = `Analiza la siguiente descripción de un vermut artesanal para crear un cóctel personalizado:
+            
+            DESCRIPCIÓN DEL VERMUT: "${descripcionCompleta}"
+            
+            Actúa como un mixólogo de clase mundial con una voz sofisticada y poética. Inventa un nombre único, una descripción de la experiencia sensorial y una lista de ingredientes con medidas precisas (en ml o partes) para un cóctel que utilice este vermut como base principal. Asegúrate de que la lista de ingredientes sea muy clara y esté formateada con viñetas Markdown (*).`;
+
+            // Definición del esquema JSON para una respuesta estructurada
+            const jsonSchema = {
+                type: "OBJECT",
+                properties: {
+                    "nombreCoctel": { "type": "STRING", "description": "Nombre creativo y poético del cóctel." },
+                    "descripcion": { "type": "STRING", "description": "Breve descripción de la experiencia del cóctel." },
+                    "ingredientes": { "type": "STRING", "description": "Lista de ingredientes con medidas. Debe estar formateado estrictamente como una lista de viñetas Markdown (usando '*')." },
+                    "garnish": { "type": "STRING", "description": "Adorno o decoración sugerida (ejemplo: un twist de limón, una cereza)." }
+                },
+                required: ["nombreCoctel", "descripcion", "ingredientes", "garnish"],
+                propertyOrdering: ["nombreCoctel", "descripcion", "ingredientes", "garnish"]
+            };
+
+            const systemPrompt = "Eres un mixólogo de clase mundial especializado en vermut artesanal. Tu tarea es inventar un cóctel único y poético que resalte las características del vermut proporcionado. Genera una respuesta en formato JSON estricto en español.";
+            
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: jsonSchema
+                }
+            };
+
+            try {
+                const result = await fetchWithBackoff(payload, apiUrl);
+                    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    const coctelData = JSON.parse(text);
+                    
+                    // 1. Reemplazar la referencia genérica del vermut por el nombre de usuario
+                    let ingredientesFinales = coctelData.ingredientes.replace(/vermut tinto|vermut blanco|vermut rosado|vermut seco|vermut/ig, '<strong>tu Vermut Artesanal</strong>');
+                    
+                    // 2. Convertir la lista de viñetas Markdown (*) a HTML <ul><li>
+                    let listItems = ingredientesFinales.split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line.startsWith('*') || line.startsWith('-'))
+                        .map(line => `<li>${line.substring(1).trim()}</li>`)
+                        .join('');
+
+                    // Asegurarse de que el HTML de la lista esté envuelto en <ul>
+                    const ingredientesHtml = listItems ? `<ul>${listItems}</ul>` : `<p class="text-red-300">No se pudieron listar los ingredientes.</p>`;
+
+
+                    // --- Formato de la Salida ---
+                    resultadoDiv.innerHTML = `
+                        <h2 class="text-xl font-bold text-emerald-400 mb-3">${coctelData.nombreCoctel}</h2>
+                        <p class="text-sm italic text-gray-400 mb-4">"${coctelData.descripcion}"</p>
+                        <hr class="w-2/3 border-red-900 mb-4">
+                        <div class="w-full text-left">
+                            <p class="font-semibold text-red-300 mb-2">Ingredientes Clave (La Fórmula):</p>
+                            ${ingredientesHtml}
+                        </div>
+                        <p class="mt-4 font-semibold text-red-300">El Toque Final (Garnish):</p>
+                            <p class="text-sm text-gray-300">${coctelData.garnish}</p>
+                        </div>
+                    `;
+                } else {
+                    resultadoDiv.innerHTML = '<p class="text-red-500">Error en la Alquimia: No se pudo generar una fórmula. Inténtalo de nuevo.</p>';
+                }
+            } catch (error) {
+                console.error("Error al llamar a la API de Gemini:", error);
+                resultadoDiv.innerHTML = '<p class="text-red-500">Error Crítico: El Laboratorio falló. Verifica tu conexión e inténtalo de nuevo.</p>';
+            } finally {
+                sugerirBtn.disabled = false;
+                sugerirBtn.classList.remove('bg-gray-600', 'hover:bg-gray-600');
+                sugerirBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+            }
+        }
+    </script>
+
+</body>
+</html>
